@@ -39,7 +39,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         # Allow form-action to self and the Mastodon domain
-        csp_policy = f"default-src 'self'; form-action 'self' {MASTODON_DOMAIN}; frame-ancestors 'none';"
+        csp_policy = f"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; form-action 'self' {MASTODON_DOMAIN}; frame-ancestors 'none';"
         response.headers["Content-Security-Policy"] = csp_policy
         return response
 
