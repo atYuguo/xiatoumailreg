@@ -62,7 +62,7 @@ async def read_root(request: Request):
             if reg["mastodon_id"] == user["id"]:
                 return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL})
         return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN})
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "DOMAIN": DOMAIN})
 
 @app.get("/login")
 async def login():
