@@ -162,7 +162,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     clean_username = username.strip().lower()
-    if clean_username in forbidden_names or any(clean_username.startswith(f) for f in forbidden_names) or any(clean_username.endswith(f) for f in forbidden_names):
+    if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
         return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "This name is forbidden, please choose another name."})
 
     # Tier 2: Availability Check
@@ -216,7 +216,7 @@ async def validate_username(request: Request):
     if not clean_username:
         return {"valid": False, "message": "Username cannot be empty."}
         
-    if clean_username in forbidden_names or any(clean_username.startswith(f) for f in forbidden_names) or any(clean_username.endswith(f) for f in forbidden_names):
+    if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
         return {"valid": False, "message": "This name is forbidden, please choose another name."}
 
     # Tier 2: Availability Check
