@@ -1,11 +1,12 @@
 
 import json
+import logging
 import os
-from datetime import datetime
+import secrets
 
 import requests
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, Request, Depends
+from fastapi import FastAPI, Form, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -51,6 +52,17 @@ def save_json(file_path, data):
 def get_user_from_session(request: Request):
     return request.session.get("user")
 
+
+async def csrf_protect(request: Request):
+    csrf_token = request.cookies.get("csrf_token")
+    # Use .get("csrf_token", "") to avoid errors if the form is empty
+    form_data = await request.form()
+    form_csrf_token = form_data.get("csrf_token")
+    if not csrf_token or not form_csrf_token or not secrets.compare_digest(csrf_token, form_csrf_token):
+        logger.warning("CSRF token mismatch for request.")
+        raise HTTPException(status_code=403, detail="CSRF token mismatch")
+    return True
+
 # --- Routes ---
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -61,7 +73,12 @@ async def read_root(request: Request):
         for reg in reglist["registrations"]:
             if reg["mastodon_id"] == user["id"]:
                 return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL})
-        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN})
+        
+        csrf_token = secrets.token_hex(16)
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token})
+        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+        return response
+        
     return templates.TemplateResponse("index.html", {"request": request, "DOMAIN": DOMAIN})
 
 @app.get("/login")
@@ -100,7 +117,7 @@ async def callback(request: Request, code: str):
     request.session["user"] = user_data
     return RedirectResponse("/")
 
-@app.post("/register")
+@app.post("/register", dependencies=[Depends(csrf_protect)])
 async def register(request: Request, username: str = Form(...), password: str = Form(...)):
     user = get_user_from_session(request)
     if not user:

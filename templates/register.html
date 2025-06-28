@@ -11,6 +11,7 @@
         <h1>Create Your Email Account</h1>
         <p>Welcome, {{ mastodon_user.username }}!</p>
         <form action="/register" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required> @{{ DOMAIN }}
             <div id="username-validation-message"></div>
