@@ -162,9 +162,15 @@ async def register(request: Request, username: str = Form(...), password: str = 
         return RedirectResponse("/login")
 
     # --- Username Validation ---
+    clean_username = username.strip().lower()
+    if len(clean_username) < 3:
+        csrf_token = secrets.token_hex(16)
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "Username must be at least 3 characters long."})
+        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+        return response
+
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
-    clean_username = username.strip().lower()
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
         csrf_token = secrets.token_hex(16)
         response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "This name is forbidden, please choose another name."})
@@ -223,10 +229,13 @@ async def logout(request: Request):
 async def validate_username(request: Request):
     data = await request.json()
     username = data.get("username", "")
+    clean_username = username.strip().lower()
+
+    if len(clean_username) < 3:
+        return {"valid": False, "message": "Username must be at least 3 characters long."}
     
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
-    clean_username = username.strip().lower()
     if not clean_username:
         return {"valid": False, "message": "Username cannot be empty."}
         

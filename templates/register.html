@@ -31,7 +31,7 @@
 
         usernameInput.addEventListener('input', async () => {
             const username = usernameInput.value;
-            if (username.length > 0) {
+            if (username.length > 2) {
                 const response = await fetch('/validate-username', {
                     method: 'POST',
                     headers: {
@@ -41,9 +41,14 @@
                 });
                 const data = await response.json();
                 validationMessage.textContent = data.message;
-                validationMessage.style.color = data.valid ? 'green' : 'red';
+                if (data.message === 'This name is not available, please choose another name.') {
+                    validationMessage.style.color = 'red';
+                } else {
+                    validationMessage.style.color = data.valid ? 'green' : 'red';
+                }
             } else {
-                validationMessage.textContent = '';
+                validationMessage.textContent = 'Username must be at least 3 characters long.';
+                validationMessage.style.color = 'red';
             }
         });
     </script>
