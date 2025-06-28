@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import re
 import secrets
 import shutil
 import datetime
@@ -161,13 +162,15 @@ async def register(request: Request, username: str = Form(...), password: str = 
     if not user:
         return RedirectResponse("/login")
 
-    # --- Username Validation ---
-    clean_username = username.strip().lower()
-    if len(clean_username) < 3:
+    # --- Username and Password Validation ---
+    error_message = validate_user_input(username, password)
+    if error_message:
         csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "Username must be at least 3 characters long."})
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": error_message})
         response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
         return response
+
+    clean_username = username.strip().lower()
 
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
@@ -229,10 +232,12 @@ async def logout(request: Request):
 async def validate_username(request: Request):
     data = await request.json()
     username = data.get("username", "")
-    clean_username = username.strip().lower()
+    
+    error_message = validate_user_input(username, "a_valid_password") # Password validation is not needed here
+    if error_message and "Username" in error_message:
+        return {"valid": False, "message": error_message}
 
-    if len(clean_username) < 3:
-        return {"valid": False, "message": "Username must be at least 3 characters long."}
+    clean_username = username.strip().lower()
     
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
@@ -249,6 +254,15 @@ async def validate_username(request: Request):
         
     return {"valid": True, "message": "This name is available!"}
 
+
+def validate_user_input(username, password):
+    if len(username) < 3:
+        return "Username must be at least 3 characters long."
+    if len(password) < 8:
+        return "Password must be at least 8 characters long."
+    if not re.match(r"^[a-zA-Z0-9_.-]+$", username):
+        return "Username can only contain letters, numbers, and the characters: . - _"
+    return None
 
 @app.get("/health")
 async def health_check():
