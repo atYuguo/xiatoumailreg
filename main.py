@@ -224,7 +224,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
     save_json(REGISTRATION_LIST_FILE, reglist)
     logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
 
-    return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": email, "success": f"Account created successfully! Login at {WEBMAIL_URL}"})
+    return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": email, "WEBMAIL_URL": WEBMAIL_URL, "success": f"Account created successfully! Login at {WEBMAIL_URL}"})
 
 @app.get("/logout")
 async def logout(request: Request):
