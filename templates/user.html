@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Email Account</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Your Email Account</h1>
+        <p>Welcome back, {{ mastodon_user.username }}!</p>
+        <p>Your registered email address is: <strong>{{ email }}</strong></p>
+        <p>You can access your email at <a href="{{ WEBMAIL_URL }}">{{ WEBMAIL_URL }}</a>.</p>
+        <a href="/logout" class="button">Logout</a>
+    </div>
+</body>
+</html>

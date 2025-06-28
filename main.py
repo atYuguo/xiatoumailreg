@@ -1,0 +1,169 @@
+
+import json
+import os
+from datetime import datetime
+
+import requests
+from dotenv import load_dotenv
+from fastapi import FastAPI, Form, Request, Depends
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+
+load_dotenv()
+
+# --- Configuration ---
+MAILU_API_URL = os.getenv("MAILU_API_URL")
+MAILU_API_TOKEN = os.getenv("MAILU_API_TOKEN")
+MASTODON_BASE_URL = os.getenv("MASTODON_BASE_URL")
+MASTODON_CLIENT_ID = os.getenv("MASTODON_CLIENT_ID")
+MASTODON_CLIENT_SECRET = os.getenv("MASTODON_CLIENT_SECRET")
+MASTODON_REDIRECT_URI = os.getenv("MASTODON_REDIRECT_URI")
+SECRET_KEY = os.getenv("SECRET_KEY")
+USER_STORAGE = os.getenv("USER_STORAGE", "100")
+DOMAIN = os.getenv("DOMAIN")
+WEBMAIL_URL = os.getenv("WEBMAIL_URL")
+
+# --- FastAPI App ---
+app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# --- Data Files ---
+FORBIDDEN_NAMES_FILE = "forbidname.json"
+REGISTRATION_LIST_FILE = "reglist.json"
+
+# --- Helper Functions ---
+def load_json(file_path):
+    with open(file_path, "r") as f:
+        return json.load(f)
+
+def save_json(file_path, data):
+    with open(file_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+def get_user_from_session(request: Request):
+    return request.session.get("user")
+
+# --- Routes ---
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    user = get_user_from_session(request)
+    if user:
+        # Check if user is already registered
+        reglist = load_json(REGISTRATION_LIST_FILE)
+        for reg in reglist["registrations"]:
+            if reg["mastodon_id"] == user["id"]:
+                return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL})
+        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN})
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/login")
+async def login():
+    auth_url = f"{MASTODON_BASE_URL}/oauth/authorize?client_id={MASTODON_CLIENT_ID}&redirect_uri={MASTODON_REDIRECT_URI}&response_type=code&scope=read:accounts"
+    return RedirectResponse(auth_url)
+
+@app.get("/callback")
+async def callback(request: Request, code: str):
+    # Exchange code for token
+    token_url = f"{MASTODON_BASE_URL}/oauth/token"
+    token_data = {
+        "client_id": MASTODON_CLIENT_ID,
+        "client_secret": MASTODON_CLIENT_SECRET,
+        "redirect_uri": MASTODON_REDIRECT_URI,
+        "grant_type": "authorization_code",
+        "code": code,
+    }
+    response = requests.post(token_url, data=token_data)
+    if response.status_code != 200:
+        return HTMLResponse("Error getting token from Mastodon.", status_code=400)
+    
+    access_token = response.json()["access_token"]
+
+    # Get user info
+    user_info_url = f"{MASTODON_BASE_URL}/api/v1/accounts/verify_credentials"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    user_response = requests.get(user_info_url, headers=headers)
+    if user_response.status_code != 200:
+        return HTMLResponse("Error getting user info from Mastodon.", status_code=400)
+
+    user_data = user_response.json()
+    request.session["user"] = user_data
+    return RedirectResponse("/")
+
+@app.post("/register")
+async def register(request: Request, username: str = Form(...), password: str = Form(...)):
+    user = get_user_from_session(request)
+    if not user:
+        return RedirectResponse("/login")
+
+    # --- Username Validation ---
+    # Tier 1: Forbidden Names
+    forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
+    clean_username = username.strip().lower()
+    if clean_username in forbidden_names or any(clean_username.startswith(f) for f in forbidden_names) or any(clean_username.endswith(f) for f in forbidden_names):
+        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "This name is forbidden, please choose another name."})
+
+    # Tier 2: Availability Check
+    reglist = load_json(REGISTRATION_LIST_FILE)
+    if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
+        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "This name is not available, please choose another name."})
+
+    # --- Mailu API Integration ---
+    email = f"{clean_username}@{DOMAIN}"
+    mailu_headers = {"Authorization": f"Bearer {MAILU_API_TOKEN}"}
+    mailu_payload = {
+        "local_part": clean_username,
+        "domain_name": DOMAIN,
+        "password": password,
+        "quota_bytes": int(USER_STORAGE) * 1024 * 1024,  # Convert MB to Bytes
+    }
+    
+    # Tier 3: Create account in Mailu
+    response = requests.post(f"{MAILU_API_URL}user", headers=mailu_headers, json=mailu_payload)
+    if response.status_code not in [200, 201]:
+        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "Something went wrong, please try again later."})
+
+    # Update registration list
+    reglist["registrations"].append({
+        "mastodon_id": user["id"],
+        "email": email,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    })
+    save_json(REGISTRATION_LIST_FILE, reglist)
+
+    return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": email, "success": f"Account created successfully! Login at {WEBMAIL_URL}"})
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/")
+
+
+@app.post("/validate-username")
+async def validate_username(request: Request):
+    data = await request.json()
+    username = data.get("username", "")
+    
+    # Tier 1: Forbidden Names
+    forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
+    clean_username = username.strip().lower()
+    if not clean_username:
+        return {"valid": False, "message": "Username cannot be empty."}
+        
+    if clean_username in forbidden_names or any(clean_username.startswith(f) for f in forbidden_names) or any(clean_username.endswith(f) for f in forbidden_names):
+        return {"valid": False, "message": "This name is forbidden, please choose another name."}
+
+    # Tier 2: Availability Check
+    reglist = load_json(REGISTRATION_LIST_FILE)
+    if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
+        return {"valid": False, "message": "This name is not available, please choose another name."}
+        
+    return {"valid": True, "message": "This name is available!"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}

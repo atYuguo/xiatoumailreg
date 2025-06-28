@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Email</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create Your Email Account</h1>
+        <p>Welcome, {{ mastodon_user.username }}!</p>
+        <form action="/register" method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required> @{{ DOMAIN }}
+            <div id="username-validation-message"></div>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit" class="button">Register</button>
+        </form>
+    </div>
+    <script>
+        const usernameInput = document.getElementById('username');
+        const validationMessage = document.getElementById('username-validation-message');
+
+        usernameInput.addEventListener('input', async () => {
+            const username = usernameInput.value;
+            if (username.length > 2) {
+                const response = await fetch('/validate-username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username })
+                });
+                const data = await response.json();
+                validationMessage.textContent = data.message;
+                validationMessage.style.color = data.valid ? 'green' : 'red';
+            } else {
+                validationMessage.textContent = '';
+            }
+        });
+    </script>
+</body>
+</html>
