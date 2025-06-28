@@ -13,6 +13,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 load_dotenv()
 
@@ -23,6 +25,7 @@ MASTODON_BASE_URL = os.getenv("MASTODON_BASE_URL")
 MASTODON_CLIENT_ID = os.getenv("MASTODON_CLIENT_ID")
 MASTODON_CLIENT_SECRET = os.getenv("MASTODON_CLIENT_SECRET")
 MASTODON_REDIRECT_URI = os.getenv("MASTODON_REDIRECT_URI")
+MASTODON_DOMAIN = os.getenv("MASTODON_DOMAIN")
 SECRET_KEY = os.getenv("SECRET_KEY")
 USER_STORAGE = os.getenv("USER_STORAGE", "100")
 DOMAIN = os.getenv("DOMAIN")
@@ -31,6 +34,16 @@ WEBMAIL_URL = os.getenv("WEBMAIL_URL")
 # --- FastAPI App ---
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
+class CSPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Allow form-action to self and the Mastodon domain
+        csp_policy = f"default-src 'self'; form-action 'self' {MASTODON_DOMAIN}; frame-ancestors 'none';"
+        response.headers["Content-Security-Policy"] = csp_policy
+        return response
+
+app.add_middleware(CSPMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
