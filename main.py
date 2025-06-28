@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import secrets
+import shutil
 
 import requests
 from dotenv import load_dotenv
@@ -36,9 +37,37 @@ templates = Jinja2Templates(directory="templates")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# --- Startup Recovery ---
+@app.on_event("startup")
+def startup_event():
+    if not os.path.exists(REGISTRATION_LIST_FILE):
+        logger.warning(f"{REGISTRATION_LIST_FILE} not found. Attempting to restore from backup.")
+        backup_files = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith(os.path.basename(REGISTRATION_LIST_FILE))])
+        if backup_files:
+            latest_backup = os.path.join(BACKUP_DIR, backup_files[-1])
+            shutil.copy2(latest_backup, REGISTRATION_LIST_FILE)
+            logger.info(f"Restored {REGISTRATION_LIST_FILE} from {latest_backup}")
+        else:
+            logger.error("No backups found. Creating a new registration list.")
+            save_json(REGISTRATION_LIST_FILE, {"registrations": []})
+    else:
+        try:
+            load_json(REGISTRATION_LIST_FILE)
+        except json.JSONDecodeError:
+            logger.error(f"{REGISTRATION_LIST_FILE} is corrupted. Attempting to restore from backup.")
+            backup_files = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith(os.path.basename(REGISTRATION_LIST_FILE))])
+            if backup_files:
+                latest_backup = os.path.join(BACKUP_DIR, backup_files[-1])
+                shutil.copy2(latest_backup, REGISTRATION_LIST_FILE)
+                logger.info(f"Restored {REGISTRATION_LIST_FILE} from {latest_backup}")
+            else:
+                logger.error("No backups found and the existing file is corrupted. A new file will be created on next registration.")
+
+
 # --- Data Files ---
 FORBIDDEN_NAMES_FILE = "forbidname.json"
 REGISTRATION_LIST_FILE = "reglist.json"
+BACKUP_DIR = "backups"
 
 # --- Helper Functions ---
 def load_json(file_path):
@@ -46,6 +75,12 @@ def load_json(file_path):
         return json.load(f)
 
 def save_json(file_path, data):
+    # Create a backup before writing
+    if os.path.exists(file_path):
+        backup_path = os.path.join(BACKUP_DIR, f"{os.path.basename(file_path)}.{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.bak")
+        shutil.copy2(file_path, backup_path)
+        logger.info(f"Created backup: {backup_path}")
+
     with open(file_path, "w") as f:
         json.dump(data, f, indent=2)
 
