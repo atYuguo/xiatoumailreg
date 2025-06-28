@@ -4,7 +4,7 @@ import logging
 import os
 import secrets
 import shutil
-
+import datetime
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request, Depends, HTTPException
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # --- Startup Recovery ---
 @app.on_event("startup")
 def startup_event():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
     if not os.path.exists(REGISTRATION_LIST_FILE):
         logger.warning(f"{REGISTRATION_LIST_FILE} not found. Attempting to restore from backup.")
         backup_files = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith(os.path.basename(REGISTRATION_LIST_FILE))])
@@ -75,9 +76,11 @@ def load_json(file_path):
         return json.load(f)
 
 def save_json(file_path, data):
+    # Ensure backup directory exists
+    os.makedirs(BACKUP_DIR, exist_ok=True)
     # Create a backup before writing
     if os.path.exists(file_path):
-        backup_path = os.path.join(BACKUP_DIR, f"{os.path.basename(file_path)}.{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.bak")
+        backup_path = os.path.join(BACKUP_DIR, f"{os.path.basename(file_path)}.{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}.bak")
         shutil.copy2(file_path, backup_path)
         logger.info(f"Created backup: {backup_path}")
 
@@ -194,7 +197,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
     reglist["registrations"].append({
         "mastodon_id": user["id"],
         "email": email,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     })
     save_json(REGISTRATION_LIST_FILE, reglist)
     logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
