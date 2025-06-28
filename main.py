@@ -92,6 +92,22 @@ def get_user_from_session(request: Request):
     return request.session.get("user")
 
 
+def render_register_error(request: Request, user: dict, error_message: str):
+    csrf_token = secrets.token_hex(16)
+    response = templates.TemplateResponse(
+        "register.html",
+        {
+            "request": request,
+            "mastodon_user": user,
+            "DOMAIN": DOMAIN,
+            "csrf_token": csrf_token,
+            "error": error_message,
+        },
+    )
+    response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+    return response
+
+
 async def csrf_protect(request: Request):
     csrf_token = request.cookies.get("csrf_token")
     # Use .get("csrf_token", "") to avoid errors if the form is empty
@@ -165,28 +181,19 @@ async def register(request: Request, username: str = Form(...), password: str = 
     # --- Username and Password Validation ---
     error_message = validate_user_input(username, password)
     if error_message:
-        csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": error_message})
-        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
-        return response
+        return render_register_error(request, user, error_message)
 
     clean_username = username.strip().lower()
 
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "This name is forbidden, please choose another name."})
-        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
-        return response
+        return render_register_error(request, user, "This name is forbidden, please choose another name.")
 
     # Tier 2: Availability Check
     reglist = load_json(REGISTRATION_LIST_FILE)
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "This name is not available, please choose another name."})
-        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
-        return response
+        return render_register_error(request, user, "This name is not available, please choose another name.")
 
     # --- Mailu API Integration ---
     email = f"{clean_username}@{DOMAIN}"
@@ -206,10 +213,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Mailu API error when creating account for {clean_username}: {e}")
-        csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "Something went wrong, please try again later."})
-        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
-        return response
+        return render_register_error(request, user, "Something went wrong, please try again later.")
 
     # Update registration list
     reglist["registrations"].append({
@@ -258,12 +262,10 @@ async def validate_username(request: Request):
 def validate_user_input(username, password):
     if len(username) < 3:
         return "Username must be at least 3 characters long."
-    if not re.match(r"^[a-zA-Z]", username):
-        return "Username must start with a letter."
     if len(password) < 8:
         return "Password must be at least 8 characters long."
-    if not re.match(r"^[a-zA-Z0-9_.-]+$", username):
-        return "Username can only contain letters, numbers, and the characters: . - _"
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", username):
+        return "Username must start with a letter and can only contain letters, numbers, and the characters: . - _"
     return None
 
 @app.get("/health")
