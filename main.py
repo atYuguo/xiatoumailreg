@@ -265,7 +265,7 @@ def validate_user_input(username, password):
     if len(password) < 8:
         return "Password must be at least 8 characters long."
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", username):
-        return "Username must start with a letter and can only contain letters, numbers, and the characters: . - _"
+        return "Username must start with a letter and can only contain <br>letters, numbers, and the characters: . - _"
     return None
 
 @app.get("/health")
