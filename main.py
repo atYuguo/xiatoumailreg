@@ -31,6 +31,10 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# --- Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # --- Data Files ---
 FORBIDDEN_NAMES_FILE = "forbidname.json"
 REGISTRATION_LIST_FILE = "reglist.json"
@@ -85,9 +89,12 @@ async def callback(request: Request, code: str):
     # Get user info
     user_info_url = f"{MASTODON_BASE_URL}/api/v1/accounts/verify_credentials"
     headers = {"Authorization": f"Bearer {access_token}"}
-    user_response = requests.get(user_info_url, headers=headers)
-    if user_response.status_code != 200:
-        return HTMLResponse("Error getting user info from Mastodon.", status_code=400)
+    try:
+        user_response = requests.get(user_info_url, headers=headers, timeout=5)
+        user_response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error getting user info from Mastodon: {e}")
+        return templates.TemplateResponse("error.html", {"request": request, "error_message": "Could not retrieve your user information. Please try again later."})
 
     user_data = user_response.json()
     request.session["user"] = user_data
@@ -122,8 +129,11 @@ async def register(request: Request, username: str = Form(...), password: str = 
     }
     
     # Tier 3: Create account in Mailu
-    response = requests.post(f"{MAILU_API_URL}user", headers=mailu_headers, json=mailu_payload)
-    if response.status_code not in [200, 201]:
+    try:
+        response = requests.post(f"{MAILU_API_URL}user", headers=mailu_headers, json=mailu_payload, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Mailu API error when creating account for {clean_username}: {e}")
         return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "Something went wrong, please try again later."})
 
     # Update registration list
@@ -133,6 +143,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
         "created_at": datetime.utcnow().isoformat() + "Z",
     })
     save_json(REGISTRATION_LIST_FILE, reglist)
+    logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
 
     return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": email, "success": f"Account created successfully! Login at {WEBMAIL_URL}"})
 
