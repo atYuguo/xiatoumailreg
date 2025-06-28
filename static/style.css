@@ -52,6 +52,6 @@ input {
 }
 
 .error {
-    color: red;
+    color: red !important;
     margin-top: 1rem;
 }
