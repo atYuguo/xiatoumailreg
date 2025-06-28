@@ -45,27 +45,23 @@
             const username = this.value;
             const messageElement = document.getElementById('username-validation-message');
             
-            if (username.length > 2) {
-                fetch('/validate-username', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username: username })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.valid) {
-                        messageElement.textContent = data.message;
-                        messageElement.className = 'success';
-                    } else {
-                        messageElement.textContent = data.message;
-                        messageElement.className = 'error';
-                    }
-                });
-            } else {
-                messageElement.textContent = '';
-            }
+            fetch('/validate-username', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username: username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    messageElement.textContent = data.message;
+                    messageElement.className = 'success';
+                } else {
+                    messageElement.innerHTML = data.message; // Use innerHTML to render the <br>
+                    messageElement.className = 'error';
+                }
+            });
         });
     </script>
 </body>

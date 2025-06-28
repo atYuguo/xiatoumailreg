@@ -235,8 +235,12 @@ async def register(request: Request, username: str = Form(...), password: str = 
         return RedirectResponse("/login")
 
     # --- Username and Password Validation ---
-    error_message = validate_user_input(request, username, password)
-    if error_message:
+    username_error = validate_username_format(request, username)
+    password_error = validate_password(request, password)
+    if username_error:
+        return render_register_error(request, user, username_error)
+    if password_error:
+        return render_register_error(request, user, password_error)
         return render_register_error(request, user, error_message)
 
     clean_username = username.strip().lower()
@@ -298,9 +302,9 @@ async def validate_username(request: Request):
     data = await request.json()
     username = data.get("username", "")
     
-    error_message = validate_user_input(request, username, "a_valid_password") # Password validation is not needed here
-    if error_message and "Username" in error_message:
-        return {"valid": False, "message": _(request, error_message)}
+    format_error = validate_username_format(request, username)
+    if format_error:
+        return {"valid": False, "message": format_error}
 
     clean_username = username.strip().lower()
     
@@ -320,14 +324,18 @@ async def validate_username(request: Request):
     return {"valid": True, "message": _(request, "This name is available!")}
 
 
-def validate_user_input(request: Request, username, password):
+def validate_username_format(request: Request, username: str):
     if len(username) < 3:
         return _(request, "Username must be at least 3 characters long.")
-    if len(password) < 8:
-        return _(request, "Password must be at least 8 characters long.")
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", username):
         return _(request, "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _")
     return None
+
+def validate_password(request: Request, password: str):
+    if len(password) < 8:
+        return _(request, "Password must be at least 8 characters long.")
+    return None
+
 
 @app.get("/health")
 async def health_check():
