@@ -122,12 +122,13 @@ async def csrf_protect(request: Request):
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     user = get_user_from_session(request)
+    success_message = request.session.pop("success_message", None)
     if user:
         # Check if user is already registered
         reglist = load_json(REGISTRATION_LIST_FILE)
         for reg in reglist["registrations"]:
             if reg["mastodon_id"] == user["id"]:
-                return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL})
+                return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
         
         csrf_token = secrets.token_hex(16)
         response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token})
@@ -195,6 +196,10 @@ async def register(request: Request, username: str = Form(...), password: str = 
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
         return render_register_error(request, user, "This name is not available, please choose another name.")
 
+    # Check if user has already registered
+    if any(reg["mastodon_id"] == user["id"] for reg in reglist["registrations"]):
+        return render_register_error(request, user, "You have already registered an account.")
+
     # --- Mailu API Integration ---
     email = f"{clean_username}@{DOMAIN}"
     mailu_headers = {"Authorization": f"Bearer {MAILU_API_TOKEN}"}
@@ -224,7 +229,8 @@ async def register(request: Request, username: str = Form(...), password: str = 
     save_json(REGISTRATION_LIST_FILE, reglist)
     logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
 
-    return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": email, "WEBMAIL_URL": WEBMAIL_URL, "success": f"Account created successfully! Login at {WEBMAIL_URL}"})
+    request.session["success_message"] = f"Account created successfully! Login at {WEBMAIL_URL}"
+    return RedirectResponse("/", status_code=303)
 
 @app.get("/logout")
 async def logout(request: Request):
@@ -265,7 +271,7 @@ def validate_user_input(username, password):
     if len(password) < 8:
         return "Password must be at least 8 characters long."
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", username):
-        return "Username must start with a letter and can only contain <br>letters, numbers, and the characters: . - _"
+        return "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _"
     return None
 
 @app.get("/health")
