@@ -19,6 +19,7 @@
                 <input type="text" id="username" name="username" required>
                 <span>@{{ DOMAIN }}</span>
             </div>
+            <div id="username-validation-message"></div>
             <input type="password" name="password" placeholder="密码" required>
             <button type="submit">注册</button>
         </form>
@@ -26,5 +27,33 @@
             <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
         </div>
     </div>
+    <script>
+        document.getElementById('username').addEventListener('input', function() {
+            const username = this.value;
+            const messageElement = document.getElementById('username-validation-message');
+            
+            if (username.length > 2) {
+                fetch('/validate-username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: username })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.valid) {
+                        messageElement.textContent = data.message;
+                        messageElement.className = 'success';
+                    } else {
+                        messageElement.textContent = data.message;
+                        messageElement.className = 'error';
+                    }
+                });
+            } else {
+                messageElement.textContent = '';
+            }
+        });
+    </script>
 </body>
 </html>

@@ -38,6 +38,35 @@ templates = Jinja2Templates(directory="templates")
 SUPPORTED_LANGUAGES = ["en", "zh"]
 DEFAULT_LANGUAGE = "en"
 
+TRANSLATIONS = {
+    "en": {
+        "Could not retrieve your user information. Please try again later.": "Could not retrieve your user information. Please try again later.",
+        "This name is forbidden, please choose another name.": "This name is forbidden, please choose another name.",
+        "This name is not available, please choose another name.": "This name is not available, please choose another name.",
+        "You have already registered an account.": "You have already registered an account.",
+        "Something went wrong, please try again later.": "Something went wrong, please try again later.",
+        "Username must be at least 3 characters long.": "Username must be at least 3 characters long.",
+        "Password must be at least 8 characters long.": "Password must be at least 8 characters long.",
+        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _",
+        "Username cannot be empty.": "Username cannot be empty.",
+        "This name is available!": "This name is available!",
+        "Account created successfully! Login at {WEBMAIL_URL}": "Account created successfully! Login at {WEBMAIL_URL}"
+    },
+    "zh": {
+        "Could not retrieve your user information. Please try again later.": "无法获取您的用户信息。请稍后再试。",
+        "This name is forbidden, please choose another name.": "此名称被禁止使用，请选择其他名称。",
+        "This name is not available, please choose another name.": "此名称不可用，请选择其他名称。",
+        "You have already registered an account.": "您已经注册了一个帐户。",
+        "Something went wrong, please try again later.": "出错了，请稍后再试。",
+        "Username must be at least 3 characters long.": "用户名必须至少为 3 个字符长。",
+        "Password must be at least 8 characters long.": "密码必须至少为 8 个字符长。",
+        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "用户名必须以字母开头，只能包含字母、数字,<br>和以下字符: . - _",
+        "Username cannot be empty.": "用户名不能为空。",
+        "This name is available!": "这个名字可用！",
+        "Account created successfully! Login at {WEBMAIL_URL}": "帐户创建成功！在 {WEBMAIL_URL} 登录"
+    }
+}
+
 def get_locale(request: Request):
     lang = request.query_params.get('lang')
     if lang in SUPPORTED_LANGUAGES:
@@ -55,6 +84,10 @@ def get_locale(request: Request):
 def get_template(request: Request, name: str):
     locale = get_locale(request)
     return f"{locale}/{name}"
+
+def _(request: Request, text: str, **kwargs):
+    locale = get_locale(request)
+    return TRANSLATIONS.get(locale, TRANSLATIONS[DEFAULT_LANGUAGE]).get(text, text).format(**kwargs)
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -189,7 +222,7 @@ async def callback(request: Request, code: str):
         user_response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Error getting user info from Mastodon: {e}")
-        return templates.TemplateResponse(get_template(request, "error.html"), {"request": request, "error_message": "Could not retrieve your user information. Please try again later."})
+        return templates.TemplateResponse(get_template(request, "error.html"), {"request": request, "error_message": _(request, "Could not retrieve your user information. Please try again later.")})
 
     user_data = user_response.json()
     request.session["user"] = user_data
@@ -202,7 +235,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
         return RedirectResponse("/login")
 
     # --- Username and Password Validation ---
-    error_message = validate_user_input(username, password)
+    error_message = validate_user_input(request, username, password)
     if error_message:
         return render_register_error(request, user, error_message)
 
@@ -211,16 +244,16 @@ async def register(request: Request, username: str = Form(...), password: str = 
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        return render_register_error(request, user, "This name is forbidden, please choose another name.")
+        return render_register_error(request, user, _(request, "This name is forbidden, please choose another name."))
 
     # Tier 2: Availability Check
     reglist = load_json(REGISTRATION_LIST_FILE)
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        return render_register_error(request, user, "This name is not available, please choose another name.")
+        return render_register_error(request, user, _(request, "This name is not available, please choose another name."))
 
     # Check if user has already registered
     if any(reg["mastodon_id"] == user["id"] for reg in reglist["registrations"]):
-        return render_register_error(request, user, "You have already registered an account.")
+        return render_register_error(request, user, _(request, "You have already registered an account."))
 
     # --- Mailu API Integration ---
     email = f"{clean_username}@{DOMAIN}"
@@ -240,7 +273,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Mailu API error when creating account for {clean_username}: {e}")
-        return render_register_error(request, user, "Something went wrong, please try again later.")
+        return render_register_error(request, user, _(request, "Something went wrong, please try again later."))
 
     # Update registration list
     reglist["registrations"].append({
@@ -251,7 +284,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
     save_json(REGISTRATION_LIST_FILE, reglist)
     logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
 
-    request.session["success_message"] = f"Account created successfully! Login at {WEBMAIL_URL}"
+    request.session["success_message"] = _(request, "Account created successfully! Login at {WEBMAIL_URL}", WEBMAIL_URL=WEBMAIL_URL)
     return RedirectResponse("/", status_code=303)
 
 @app.get("/logout")
@@ -265,35 +298,35 @@ async def validate_username(request: Request):
     data = await request.json()
     username = data.get("username", "")
     
-    error_message = validate_user_input(username, "a_valid_password") # Password validation is not needed here
+    error_message = validate_user_input(request, username, "a_valid_password") # Password validation is not needed here
     if error_message and "Username" in error_message:
-        return {"valid": False, "message": error_message}
+        return {"valid": False, "message": _(request, error_message)}
 
     clean_username = username.strip().lower()
     
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     if not clean_username:
-        return {"valid": False, "message": "Username cannot be empty."}
+        return {"valid": False, "message": _(request, "Username cannot be empty.")}
         
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        return {"valid": False, "message": "This name is forbidden, please choose another name."}
+        return {"valid": False, "message": _(request, "This name is forbidden, please choose another name.")}
 
     # Tier 2: Availability Check
     reglist = load_json(REGISTRATION_LIST_FILE)
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        return {"valid": False, "message": "This name is not available, please choose another name."}
+        return {"valid": False, "message": _(request, "This name is not available, please choose another name.")}
         
-    return {"valid": True, "message": "This name is available!"}
+    return {"valid": True, "message": _(request, "This name is available!")}
 
 
-def validate_user_input(username, password):
+def validate_user_input(request: Request, username, password):
     if len(username) < 3:
-        return "Username must be at least 3 characters long."
+        return _(request, "Username must be at least 3 characters long.")
     if len(password) < 8:
-        return "Password must be at least 8 characters long."
+        return _(request, "Password must be at least 8 characters long.")
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_.-]*$", username):
-        return "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _"
+        return _(request, "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _")
     return None
 
 @app.get("/health")
