@@ -174,10 +174,12 @@ async def register(request: Request, username: str = Form(...), password: str = 
     email = f"{clean_username}@{DOMAIN}"
     mailu_headers = {"Authorization": f"Bearer {MAILU_API_TOKEN}"}
     mailu_payload = {
-        "local_part": clean_username,
-        "domain_name": DOMAIN,
-        "password": password,
+        "email": email,
+        "raw_password": password,
         "quota_bytes": int(USER_STORAGE) * 1024 * 1024,  # Convert MB to Bytes
+        "global_admin": False,
+        "change_pw_next_login": False,
+        "allow_spoofing": False,
     }
     
     # Tier 3: Create account in Mailu
