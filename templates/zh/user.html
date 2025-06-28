@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>您的帐户 - {{ DOMAIN }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>你好, {{ mastodon_user.username }}!</h1>
+        {% if success %}
+            <p class="success">{{ success }}</p>
+        {% endif %}
+        <p>您的电子邮件地址是: <strong>{{ email }}</strong></p>
+        <p>您可以在 <a href="{{ WEBMAIL_URL }}">{{ WEBMAIL_URL }}</a> 登录您的收件箱。</p>
+        <a href="/logout" class="button">登出</a>
+        <div class="language-switcher">
+            <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
+        </div>
+    </div>
+</body>
+</html>

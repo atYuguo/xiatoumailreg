@@ -34,6 +34,28 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# --- Language Settings ---
+SUPPORTED_LANGUAGES = ["en", "zh"]
+DEFAULT_LANGUAGE = "en"
+
+def get_locale(request: Request):
+    lang = request.query_params.get('lang')
+    if lang in SUPPORTED_LANGUAGES:
+        return lang
+    accept_language = request.headers.get('accept-language')
+    if accept_language:
+        languages = [lang.split(';')[0] for lang in accept_language.split(',')]
+        for lang in languages:
+            if lang.startswith("zh"):
+                return "zh"
+            elif lang.startswith("en"):
+                return "en"
+    return DEFAULT_LANGUAGE
+
+def get_template(request: Request, name: str):
+    locale = get_locale(request)
+    return f"{locale}/{name}
+
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -95,7 +117,7 @@ def get_user_from_session(request: Request):
 def render_register_error(request: Request, user: dict, error_message: str):
     csrf_token = secrets.token_hex(16)
     response = templates.TemplateResponse(
-        "register.html",
+        get_template(request, "register.html"),
         {
             "request": request,
             "mastodon_user": user,
@@ -128,14 +150,14 @@ async def read_root(request: Request):
         reglist = load_json(REGISTRATION_LIST_FILE)
         for reg in reglist["registrations"]:
             if reg["mastodon_id"] == user["id"]:
-                return templates.TemplateResponse("user.html", {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
+                return templates.TemplateResponse(get_template(request, "user.html"), {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
         
         csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token})
+        response = templates.TemplateResponse(get_template(request, "register.html"), {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token})
         response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
         return response
         
-    return templates.TemplateResponse("index.html", {"request": request, "DOMAIN": DOMAIN})
+    return templates.TemplateResponse(get_template(request, "index.html"), {"request": request, "DOMAIN": DOMAIN})
 
 @app.get("/login")
 async def login():
@@ -167,7 +189,7 @@ async def callback(request: Request, code: str):
         user_response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Error getting user info from Mastodon: {e}")
-        return templates.TemplateResponse("error.html", {"request": request, "error_message": "Could not retrieve your user information. Please try again later."})
+        return templates.TemplateResponse(get_template(request, "error.html"), {"request": request, "error_message": "Could not retrieve your user information. Please try again later."})
 
     user_data = user_response.json()
     request.session["user"] = user_data

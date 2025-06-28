@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - {{ DOMAIN }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>你好, {{ mastodon_user.username }}!</h1>
+        <p>在 {{ DOMAIN }} 创建您的电子邮件地址。</p>
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        <form action="/register" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="input-group">
+                <input type="text" id="username" name="username" required>
+                <span>@{{ DOMAIN }}</span>
+            </div>
+            <input type="password" name="password" placeholder="密码" required>
+            <button type="submit">注册</button>
+        </form>
+        <div class="language-switcher">
+            <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
+        </div>
+    </div>
+</body>
+</html>
