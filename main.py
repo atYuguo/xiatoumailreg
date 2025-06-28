@@ -258,6 +258,8 @@ async def validate_username(request: Request):
 def validate_user_input(username, password):
     if len(username) < 3:
         return "Username must be at least 3 characters long."
+    if not re.match(r"^[a-zA-Z]", username):
+        return "Username must start with a letter."
     if len(password) < 8:
         return "Password must be at least 8 characters long."
     if not re.match(r"^[a-zA-Z0-9_.-]+$", username):

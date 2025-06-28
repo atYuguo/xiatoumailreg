@@ -19,12 +19,10 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required> @{{ DOMAIN }}
-            <p class="info-text">Username can only contain letters, numbers, and the characters: . - _</p>
             <div id="username-validation-message"></div>
 
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
-            <p class="info-text">Password must be at least 8 characters long.</p>
 
             <button type="submit" class="button">Register</button>
         </form>
