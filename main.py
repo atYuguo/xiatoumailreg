@@ -47,7 +47,7 @@ TRANSLATIONS = {
         "Something went wrong, please try again later.": "Something went wrong, please try again later.",
         "Username must be at least 3 characters long.": "Username must be at least 3 characters long.",
         "Password must be at least 8 characters long.": "Password must be at least 8 characters long.",
-        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _",
+        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "Username must start with a letter and can only contain letters, numbers and the characters: . - _",
         "Username cannot be empty.": "Username cannot be empty.",
         "This name is available!": "This name is available!",
         "Account created successfully! Login at {WEBMAIL_URL}": "Account created successfully! Login at {WEBMAIL_URL}"
@@ -60,7 +60,7 @@ TRANSLATIONS = {
         "Something went wrong, please try again later.": "出错了，请稍后再试。",
         "Username must be at least 3 characters long.": "用户名必须至少为 3 个字符长。",
         "Password must be at least 8 characters long.": "密码必须至少为 8 个字符长。",
-        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "用户名必须以字母开头，只能包含字母、数字,<br>和以下字符: . - _",
+        "Username must start with a letter and can only contain letters, numbers,<br>and the characters: . - _": "用户名必须以字母开头，只能包含字母、数字和以下字符: . - _",
         "Username cannot be empty.": "用户名不能为空。",
         "This name is available!": "这个名字可用！",
         "Account created successfully! Login at {WEBMAIL_URL}": "帐户创建成功！在 {WEBMAIL_URL} 登录"
