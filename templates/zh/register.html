@@ -10,7 +10,6 @@
     <div class="container">
         <h1>你好, {{ mastodon_user.username }}!</h1>
         <p>在 {{ DOMAIN }} 创建您的电子邮件地址。</p>
-        <p style="color: #e53e3e; font-weight: 600;">密码必须至少为 8 个字符长。</p>
 
         {% if error %}
             <div class="error-message">{{ error }}</div>
