@@ -10,25 +10,31 @@
     <div class="container">
         <h1>Create Your Email Account</h1>
         <p>Welcome, {{ mastodon_user.username }}!</p>
+
         {% if error %}
-            <div id="username-validation-message" style="color: red;">{{ error | safe }}</div>
-        {% else %}
-            <div id="username-validation-message"></div>
+            <div class="error-message">{{ error | safe }}</div>
         {% endif %}
+
         <form action="/register" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <label for="username">Username:</label>
-            <div class="input-group">
-                <input type="text" id="username" name="username" required>
-                <span>@{{ DOMAIN }}</span>
-            </div>
-            <div id="username-validation-message"></div>
 
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <div class="input-group">
+                    <input type="text" id="username" name="username" required>
+                    <span>@{{ DOMAIN }}</span>
+                </div>
+                <div id="username-validation-message"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
 
             <button type="submit">Register</button>
         </form>
+
         <div class="language-switcher">
             <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
         </div>

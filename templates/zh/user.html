@@ -8,13 +8,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>你好, {{ mastodon_user.username }}!</h1>
+        <h1>✅ 你好, {{ mastodon_user.username }}!</h1>
         {% if success %}
-            <p class="success">{{ success }}</p>
+            <div class="success-message">{{ success }}</div>
         {% endif %}
-        <p>您的电子邮件地址是: <strong>{{ email }}</strong></p>
-        <p>您可以在 <a href="{{ WEBMAIL_URL }}">{{ WEBMAIL_URL }}</a> 登录您的收件箱。</p>
-        <a href="/logout" class="button">登出</a>
+        <p>欢迎回来！您的邮箱已成功创建。</p>
+        <div style="background: #f7fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid #667eea;">
+            <p style="margin: 0; color: #4a5568;"><strong>您的电子邮件地址:</strong></p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; font-weight: 600; color: #2d3748;">{{ email }}</p>
+        </div>
+        <p>访问您的邮箱: <a href="{{ WEBMAIL_URL }}" target="_blank" style="color: #667eea; font-weight: 600;">{{ WEBMAIL_URL }}</a></p>
+        <a href="/logout" class="button">🚪 登出</a>
         <div class="language-switcher">
             <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
         </div>

@@ -10,19 +10,32 @@
     <div class="container">
         <h1>你好, {{ mastodon_user.username }}!</h1>
         <p>在 {{ DOMAIN }} 创建您的电子邮件地址。</p>
+        <p style="color: #e53e3e; font-weight: 600;">密码必须至少为 8 个字符长。</p>
+
         {% if error %}
-            <p class="error">{{ error }}</p>
+            <div class="error-message">{{ error }}</div>
         {% endif %}
+
         <form action="/register" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <div class="input-group">
-                <input type="text" id="username" name="username" required>
-                <span>@{{ DOMAIN }}</span>
+
+            <div class="form-group">
+                <label for="username">用户名:</label>
+                <div class="input-group">
+                    <input type="text" id="username" name="username" required>
+                    <span>@{{ DOMAIN }}</span>
+                </div>
+                <div id="username-validation-message"></div>
             </div>
-            <div id="username-validation-message"></div>
-            <input type="password" name="password" placeholder="密码" required>
+
+            <div class="form-group">
+                <label for="password">密码:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
             <button type="submit">注册</button>
         </form>
+
         <div class="language-switcher">
             <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
         </div>

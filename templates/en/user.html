@@ -8,14 +8,17 @@
 </head>
 <body>
     <div class="container">
-        <h1>Your Email Account</h1>
+        <h1>✅ Your Email Account</h1>
         {% if success %}
         <div class="success-message">{{ success }}</div>
         {% endif %}
-        <p>Welcome back, {{ mastodon_user.username }}!</p>
-        <p>Your registered email address is: <strong>{{ email }}</strong></p>
-        <p>You can access your email at <a href="{{ WEBMAIL_URL }}">{{ WEBMAIL_URL }}</a>.</p>
-        <a href="/logout" class="button">Logout</a>
+        <p>Welcome back, <strong>{{ mastodon_user.username }}</strong>!</p>
+        <div style="background: #f7fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid #667eea;">
+            <p style="margin: 0; color: #4a5568;"><strong>Your email address:</strong></p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; font-weight: 600; color: #2d3748;">{{ email }}</p>
+        </div>
+        <p>Access your email at: <a href="{{ WEBMAIL_URL }}" target="_blank" style="color: #667eea; font-weight: 600;">{{ WEBMAIL_URL }}</a></p>
+        <a href="/logout" class="button">🚪 Logout</a>
         <div class="language-switcher">
             <a href="?lang=en">English</a> | <a href="?lang=zh">中文</a>
         </div>
