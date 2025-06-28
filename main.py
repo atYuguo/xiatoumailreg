@@ -54,7 +54,7 @@ def get_locale(request: Request):
 
 def get_template(request: Request, name: str):
     locale = get_locale(request)
-    return f"{locale}/{name}
+    return f"{locale}/{name}"
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
