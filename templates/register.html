@@ -11,7 +11,7 @@
         <h1>Create Your Email Account</h1>
         <p>Welcome, {{ mastodon_user.username }}!</p>
         {% if error %}
-            <div id="username-validation-message" style="color: red;">{{ error }}</div>
+            <div id="username-validation-message" style="color: red;">{{ error | safe }}</div>
         {% else %}
             <div id="username-validation-message"></div>
         {% endif %}
@@ -43,7 +43,7 @@
                     body: JSON.stringify({ username })
                 });
                 const data = await response.json();
-                validationMessage.textContent = data.message;
+                validationMessage.innerHTML = data.message;
                 validationMessage.style.color = data.valid ? 'green' : 'red';
             } else {
                 validationMessage.textContent = 'Username must be at least 3 characters long.';
