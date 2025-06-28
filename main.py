@@ -147,20 +147,11 @@ def get_user_from_session(request: Request):
     return request.session.get("user")
 
 
-def render_register_error(request: Request, user: dict, error_message: str):
-    csrf_token = secrets.token_hex(16)
-    response = templates.TemplateResponse(
-        get_template(request, "register.html"),
-        {
-            "request": request,
-            "mastodon_user": user,
-            "DOMAIN": DOMAIN,
-            "csrf_token": csrf_token,
-            "error": error_message,
-        },
-    )
-    response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
-    return response
+def set_error_message(request: Request, message: str):
+    request.session["error_message"] = message
+
+def get_error_message(request: Request):
+    return request.session.pop("error_message", None)
 
 
 async def csrf_protect(request: Request):
@@ -178,6 +169,7 @@ async def csrf_protect(request: Request):
 async def read_root(request: Request):
     user = get_user_from_session(request)
     success_message = request.session.pop("success_message", None)
+    error_message = get_error_message(request)
     if user:
         # Check if user is already registered
         reglist = load_json(REGISTRATION_LIST_FILE)
@@ -186,7 +178,7 @@ async def read_root(request: Request):
                 return templates.TemplateResponse(get_template(request, "user.html"), {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
         
         csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse(get_template(request, "register.html"), {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token})
+        response = templates.TemplateResponse(get_template(request, "register.html"), {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": error_message})
         response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
         return response
         
@@ -238,26 +230,30 @@ async def register(request: Request, username: str = Form(...), password: str = 
     username_error = validate_username_format(request, username)
     password_error = validate_password(request, password)
     if username_error:
-        return render_register_error(request, user, username_error)
+        set_error_message(request, username_error)
+        return RedirectResponse("/", status_code=303)
     if password_error:
-        return render_register_error(request, user, password_error)
-        return render_register_error(request, user, error_message)
+        set_error_message(request, password_error)
+        return RedirectResponse("/", status_code=303)
 
     clean_username = username.strip().lower()
 
     # Tier 1: Forbidden Names
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        return render_register_error(request, user, _(request, "This name is forbidden, please choose another name."))
+        set_error_message(request, _(request, "This name is forbidden, please choose another name."))
+        return RedirectResponse("/", status_code=303)
 
     # Tier 2: Availability Check
     reglist = load_json(REGISTRATION_LIST_FILE)
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        return render_register_error(request, user, _(request, "This name is not available, please choose another name."))
+        set_error_message(request, _(request, "This name is not available, please choose another name."))
+        return RedirectResponse("/", status_code=303)
 
     # Check if user has already registered
     if any(reg["mastodon_id"] == user["id"] for reg in reglist["registrations"]):
-        return render_register_error(request, user, _(request, "You have already registered an account."))
+        set_error_message(request, _(request, "You have already registered an account."))
+        return RedirectResponse("/", status_code=303)
 
     # --- Mailu API Integration ---
     email = f"{clean_username}@{DOMAIN}"
@@ -277,7 +273,8 @@ async def register(request: Request, username: str = Form(...), password: str = 
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Mailu API error when creating account for {clean_username}: {e}")
-        return render_register_error(request, user, _(request, "Something went wrong, please try again later."))
+        set_error_message(request, _(request, "Something went wrong, please try again later."))
+        return RedirectResponse("/", status_code=303)
 
     # Update registration list
     reglist["registrations"].append({
