@@ -50,3 +50,8 @@ input {
     margin-top: 0.5rem;
     font-size: 0.9rem;
 }
+
+.error {
+    color: red;
+    margin-top: 1rem;
+}
