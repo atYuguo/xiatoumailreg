@@ -166,12 +166,18 @@ async def register(request: Request, username: str = Form(...), password: str = 
     forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
     clean_username = username.strip().lower()
     if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "This name is forbidden, please choose another name."})
+        csrf_token = secrets.token_hex(16)
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "This name is forbidden, please choose another name."})
+        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+        return response
 
     # Tier 2: Availability Check
     reglist = load_json(REGISTRATION_LIST_FILE)
     if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "This name is not available, please choose another name."})
+        csrf_token = secrets.token_hex(16)
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "This name is not available, please choose another name."})
+        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+        return response
 
     # --- Mailu API Integration ---
     email = f"{clean_username}@{DOMAIN}"
@@ -191,7 +197,10 @@ async def register(request: Request, username: str = Form(...), password: str = 
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         logger.error(f"Mailu API error when creating account for {clean_username}: {e}")
-        return templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "error": "Something went wrong, please try again later."})
+        csrf_token = secrets.token_hex(16)
+        response = templates.TemplateResponse("register.html", {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": "Something went wrong, please try again later."})
+        response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
+        return response
 
     # Update registration list
     reglist["registrations"].append({

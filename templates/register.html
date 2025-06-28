@@ -10,6 +10,9 @@
     <div class="container">
         <h1>Create Your Email Account</h1>
         <p>Welcome, {{ mastodon_user.username }}!</p>
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
         <form action="/register" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <label for="username">Username:</label>
@@ -28,7 +31,7 @@
 
         usernameInput.addEventListener('input', async () => {
             const username = usernameInput.value;
-            if (username.length > 2) {
+            if (username.length > 0) {
                 const response = await fetch('/validate-username', {
                     method: 'POST',
                     headers: {
