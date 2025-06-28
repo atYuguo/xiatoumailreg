@@ -68,17 +68,30 @@ TRANSLATIONS = {
 }
 
 def get_locale(request: Request):
-    lang = request.query_params.get('lang')
-    if lang in SUPPORTED_LANGUAGES:
-        return lang
+    # 1. Check query parameter (for explicit language switching)
+    lang_param = request.query_params.get('lang')
+    if lang_param in SUPPORTED_LANGUAGES:
+        request.session["lang"] = lang_param  # Store in session
+        return lang_param
+
+    # 2. Check session (for persistent language)
+    if "lang" in request.session and request.session["lang"] in SUPPORTED_LANGUAGES:
+        return request.session["lang"]
+
+    # 3. Check Accept-Language header (for initial detection)
     accept_language = request.headers.get('accept-language')
     if accept_language:
         languages = [lang.split(';')[0] for lang in accept_language.split(',')]
         for lang in languages:
             if lang.startswith("zh"):
+                request.session["lang"] = "zh"
                 return "zh"
             elif lang.startswith("en"):
+                request.session["lang"] = "en"
                 return "en"
+    
+    # 4. Default language
+    request.session["lang"] = DEFAULT_LANGUAGE
     return DEFAULT_LANGUAGE
 
 def get_template(request: Request, name: str):
