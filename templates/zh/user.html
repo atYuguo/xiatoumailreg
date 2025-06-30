@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>✅ 你好, {{ user.preferred_username }}!</h1>
+        <h1>✅ <span class="gradient-text">你好, {{ user.preferred_username }}!</span></h1>
         {% if success %}
             <div class="success-message">{{ success }}</div>
         {% endif %}

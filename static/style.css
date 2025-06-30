@@ -32,6 +32,10 @@ h1 {
     font-weight: 700;
     margin-bottom: 0.5rem;
     color: #2d3748;
+}
+
+/* Apply gradient only to text, not emojis */
+h1 .gradient-text {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
