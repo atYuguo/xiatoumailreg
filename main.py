@@ -21,11 +21,10 @@ load_dotenv()
 # --- Configuration ---
 MAILU_API_URL = os.getenv("MAILU_API_URL")
 MAILU_API_TOKEN = os.getenv("MAILU_API_TOKEN")
-MASTODON_BASE_URL = os.getenv("MASTODON_BASE_URL")
-MASTODON_CLIENT_ID = os.getenv("MASTODON_CLIENT_ID")
-MASTODON_CLIENT_SECRET = os.getenv("MASTODON_CLIENT_SECRET")
-MASTODON_REDIRECT_URI = os.getenv("MASTODON_REDIRECT_URI")
-MASTODON_DOMAIN = os.getenv("MASTODON_DOMAIN")
+AUTHENTIK_BASE_URL = os.getenv("AUTHENTIK_BASE_URL")
+AUTHENTIK_CLIENT_ID = os.getenv("AUTHENTIK_CLIENT_ID")
+AUTHENTIK_CLIENT_SECRET = os.getenv("AUTHENTIK_CLIENT_SECRET")
+AUTHENTIK_REDIRECT_URI = os.getenv("AUTHENTIK_REDIRECT_URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 USER_STORAGE = os.getenv("USER_STORAGE", "100")
 DOMAIN = os.getenv("DOMAIN")
@@ -38,8 +37,8 @@ app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 class CSPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        # Allow form-action to self and the Mastodon domain
-        csp_policy = f"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; form-action 'self' {MASTODON_DOMAIN}; frame-ancestors 'none';"
+        # Allow form-action to self and the Authentik domain
+        csp_policy = f"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; form-action 'self' {AUTHENTIK_BASE_URL}; frame-ancestors 'none';"
         response.headers["Content-Security-Policy"] = csp_policy
         return response
 
@@ -200,11 +199,11 @@ async def read_root(request: Request):
         # Check if user is already registered
         reglist = load_json(REGISTRATION_LIST_FILE)
         for reg in reglist["registrations"]:
-            if reg["mastodon_id"] == user["id"]:
-                return templates.TemplateResponse(get_template(request, "user.html"), {"request": request, "mastodon_user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
+            if reg["authentik_id"] == user["sub"]:
+                return templates.TemplateResponse(get_template(request, "user.html"), {"request": request, "user": user, "email": reg["email"], "WEBMAIL_URL": WEBMAIL_URL, "success": success_message})
         
         csrf_token = secrets.token_hex(16)
-        response = templates.TemplateResponse(get_template(request, "register.html"), {"request": request, "mastodon_user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": error_message})
+        response = templates.TemplateResponse(get_template(request, "register.html"), {"request": request, "user": user, "DOMAIN": DOMAIN, "csrf_token": csrf_token, "error": error_message})
         response.set_cookie(key="csrf_token", value=csrf_token, httponly=True)
         return response
         
@@ -212,34 +211,34 @@ async def read_root(request: Request):
 
 @app.get("/login")
 async def login():
-    auth_url = f"{MASTODON_BASE_URL}/oauth/authorize?client_id={MASTODON_CLIENT_ID}&redirect_uri={MASTODON_REDIRECT_URI}&response_type=code&scope=read:accounts"
+    auth_url = f"{AUTHENTIK_BASE_URL}/application/o/authorize/?client_id={AUTHENTIK_CLIENT_ID}&redirect_uri={AUTHENTIK_REDIRECT_URI}&response_type=code&scope=openid email profile"
     return RedirectResponse(auth_url)
 
 @app.get("/callback")
 async def callback(request: Request, code: str):
     # Exchange code for token
-    token_url = f"{MASTODON_BASE_URL}/oauth/token"
+    token_url = f"{AUTHENTIK_BASE_URL}/application/o/token/"
     token_data = {
-        "client_id": MASTODON_CLIENT_ID,
-        "client_secret": MASTODON_CLIENT_SECRET,
-        "redirect_uri": MASTODON_REDIRECT_URI,
+        "client_id": AUTHENTIK_CLIENT_ID,
+        "client_secret": AUTHENTIK_CLIENT_SECRET,
+        "redirect_uri": AUTHENTIK_REDIRECT_URI,
         "grant_type": "authorization_code",
         "code": code,
     }
     response = requests.post(token_url, data=token_data)
     if response.status_code != 200:
-        return HTMLResponse("Error getting token from Mastodon.", status_code=400)
+        return HTMLResponse("Error getting token from Authentik.", status_code=400)
     
     access_token = response.json()["access_token"]
 
     # Get user info
-    user_info_url = f"{MASTODON_BASE_URL}/api/v1/accounts/verify_credentials"
+    user_info_url = f"{AUTHENTIK_BASE_URL}/application/o/userinfo/"
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
         user_response = requests.get(user_info_url, headers=headers, timeout=5)
         user_response.raise_for_status()
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error getting user info from Mastodon: {e}")
+        logger.error(f"Error getting user info from Authentik: {e}")
         return templates.TemplateResponse(get_template(request, "error.html"), {"request": request, "error_message": _(request, "Could not retrieve your user information. Please try again later.")})
 
     user_data = user_response.json()
@@ -247,10 +246,12 @@ async def callback(request: Request, code: str):
     return RedirectResponse("/")
 
 @app.post("/register", dependencies=[Depends(csrf_protect)])
-async def register(request: Request, username: str = Form(...), password: str = Form(...)):
+async def register(request: Request, password: str = Form(...)):
     user = get_user_from_session(request)
     if not user:
         return RedirectResponse("/login")
+
+    username = user.get("preferred_username")
 
     # --- Username and Password Validation ---
     username_error = validate_username_format(request, username)
@@ -277,7 +278,7 @@ async def register(request: Request, username: str = Form(...), password: str = 
         return RedirectResponse("/", status_code=303)
 
     # Check if user has already registered
-    if any(reg["mastodon_id"] == user["id"] for reg in reglist["registrations"]):
+    if any(reg["authentik_id"] == user["sub"] for reg in reglist["registrations"]):
         set_error_message(request, _(request, "You have already registered an account."))
         return RedirectResponse("/", status_code=303)
 
@@ -304,12 +305,12 @@ async def register(request: Request, username: str = Form(...), password: str = 
 
     # Update registration list
     reglist["registrations"].append({
-        "mastodon_id": user["id"],
+        "authentik_id": user["sub"],
         "email": email,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     })
     save_json(REGISTRATION_LIST_FILE, reglist)
-    logger.info(f"Successfully registered {email} for Mastodon user {user['id']}")
+    logger.info(f"Successfully registered {email} for Authentik user {user['sub']}")
 
     request.session["success_message"] = _(request, "Account created successfully! Login at {WEBMAIL_URL}", WEBMAIL_URL=WEBMAIL_URL)
     return RedirectResponse("/", status_code=303)
@@ -320,31 +321,7 @@ async def logout(request: Request):
     return RedirectResponse("/")
 
 
-@app.post("/validate-username")
-async def validate_username(request: Request):
-    data = await request.json()
-    username = data.get("username", "")
-    
-    format_error = validate_username_format(request, username)
-    if format_error:
-        return {"valid": False, "message": format_error}
 
-    clean_username = username.strip().lower()
-    
-    # Tier 1: Forbidden Names
-    forbidden_names = load_json(FORBIDDEN_NAMES_FILE)
-    if not clean_username:
-        return {"valid": False, "message": _(request, "Username cannot be empty.")}
-        
-    if clean_username in forbidden_names or any(f.startswith(clean_username) for f in forbidden_names) or any(f.endswith(clean_username) for f in forbidden_names):
-        return {"valid": False, "message": _(request, "This name is forbidden, please choose another name.")}
-
-    # Tier 2: Availability Check
-    reglist = load_json(REGISTRATION_LIST_FILE)
-    if any(reg["email"].startswith(f"{clean_username}@") for reg in reglist["registrations"]):
-        return {"valid": False, "message": _(request, "This name is not available, please choose another name.")}
-        
-    return {"valid": True, "message": _(request, "This name is available!")}
 
 
 def validate_username_format(request: Request, username: str):

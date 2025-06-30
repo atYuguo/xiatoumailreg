@@ -12,7 +12,7 @@
         {% if success %}
         <div class="success-message">{{ success }}</div>
         {% endif %}
-        <p>Welcome back, <strong>{{ mastodon_user.username }}</strong>!</p>
+        <p>Welcome back, <strong>{{ user.preferred_username }}</strong>!</p>
         <div style="background: #f7fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; border-left: 4px solid #667eea;">
             <p style="margin: 0; color: #4a5568;"><strong>Your email address:</strong></p>
             <p style="margin: 0.5rem 0 0 0; font-size: 1.1rem; font-weight: 600; color: #2d3748;">{{ email }}</p>

@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <h1>Create Your Email Account</h1>
-        <p>Welcome, {{ mastodon_user.username }}!</p>
+        <p>Welcome, {{ user.preferred_username }}!</p>
 
         {% if error %}
             <div class="error-message">{{ error | safe }}</div>
@@ -21,10 +21,9 @@
             <div class="form-group">
                 <label for="username">Username:</label>
                 <div class="input-group">
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" value="{{ user.preferred_username }}" disabled>
                     <span>@{{ DOMAIN }}</span>
                 </div>
-                <div id="username-validation-message"></div>
             </div>
 
             <div class="form-group">
@@ -39,53 +38,5 @@
             <a href="/?lang=en">English</a> | <a href="/?lang=zh">中文</a> <a href="/logout" style="padding-left: 3em;">Logout</a>
         </div>
     </div>
-    <script>
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const validationMessage = document.getElementById('username-validation-message');
-
-        usernameInput.addEventListener('input', async () => {
-            const username = usernameInput.value;
-            if (username.length > 2) {
-                const response = await fetch('/validate-username', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username })
-                });
-                const data = await response.json();
-                validationMessage.innerHTML = data.message;
-                validationMessage.style.color = data.valid ? 'green' : 'red';
-            } else {
-                validationMessage.textContent = 'Username must be at least 3 characters long.';
-                validationMessage.style.color = 'red';
-            }
-        });
-    </script>
-    <script>
-        document.getElementById('username').addEventListener('input', function() {
-            const username = this.value;
-            const messageElement = document.getElementById('username-validation-message');
-            
-            fetch('/validate-username', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username: username })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.valid) {
-                    messageElement.textContent = data.message;
-                    messageElement.className = 'success';
-                } else {
-                    messageElement.innerHTML = data.message; // Use innerHTML to render the <br>
-                    messageElement.className = 'error';
-                }
-            });
-        });
-    </script>
 </body>
 </html>

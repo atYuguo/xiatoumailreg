@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>你好, {{ mastodon_user.username }}!</h1>
+        <h1>你好, {{ user.preferred_username }}!</h1>
         <p>在 {{ DOMAIN }} 创建您的电子邮件地址。</p>
 
         {% if error %}
@@ -21,10 +21,9 @@
             <div class="form-group">
                 <label for="username">用户名:</label>
                 <div class="input-group">
-                    <input type="text" id="username" name="username" required>
+                    <input type="text" id="username" name="username" value="{{ user.preferred_username }}" disabled>
                     <span>@{{ DOMAIN }}</span>
                 </div>
-                <div id="username-validation-message"></div>
             </div>
 
             <div class="form-group">
@@ -39,29 +38,5 @@
             <a href="/?lang=en">English</a> | <a href="/?lang=zh">中文</a> <a href="/logout" style="padding-left: 3em;">登出</a>
         </div>
     </div>
-    <script>
-        document.getElementById('username').addEventListener('input', function() {
-            const username = this.value;
-            const messageElement = document.getElementById('username-validation-message');
-            
-            fetch('/validate-username', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ username: username })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.valid) {
-                    messageElement.textContent = data.message;
-                    messageElement.className = 'success';
-                } else {
-                    messageElement.innerHTML = data.message; // Use innerHTML to render the <br>
-                    messageElement.className = 'error';
-                }
-            });
-        });
-    </script>
 </body>
 </html>
